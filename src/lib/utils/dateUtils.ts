@@ -1,12 +1,12 @@
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameDay, differenceInSeconds, differenceInDays, subDays } from 'date-fns';
 
 export function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = typeof date === 'string' ? new Date(date + (date.length === 10 ? 'T00:00:00' : '')) : date;
   return format(d, 'MMM d, yyyy');
 }
 
 export function formatDateShort(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = typeof date === 'string' ? new Date(date + (date.length === 10 ? 'T00:00:00' : '')) : date;
   if (isToday(d)) return 'Today';
   const yesterday = subDays(new Date(), 1);
   if (isSameDay(d, yesterday)) return 'Yesterday';
