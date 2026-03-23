@@ -8,7 +8,7 @@ import {
   BookOpen,
   Calendar,
   TrendingUp,
-  LayoutTemplate,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +18,7 @@ const navItems = [
   { href: '/exercises', icon: BookOpen, label: 'Exercises' },
   { href: '/history', icon: Calendar, label: 'History' },
   { href: '/progress', icon: TrendingUp, label: 'Progress' },
-  { href: '/templates', icon: LayoutTemplate, label: 'Templates' },
+  { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export function BottomNav() {
