@@ -7,6 +7,7 @@ import {
   BookOpen,
   Calendar,
   LayoutTemplate,
+  Scale,
 } from 'lucide-react';
 import { db } from '@/lib/db/database';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ const quickLinks = [
   { label: 'Exercises', href: '/exercises', icon: Dumbbell },
   { label: 'History', href: '/history', icon: Calendar },
   { label: 'Progress', href: '/progress', icon: BookOpen },
+  { label: 'Body Wt', href: '/bodyweight', icon: Scale },
 ] as const;
 
 export default function DashboardPage() {
@@ -33,7 +35,7 @@ export default function DashboardPage() {
       <TodayCard weightUnit={weightUnit} />
 
       {/* Quick access buttons */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {quickLinks.map(({ label, href, icon: Icon }) => (
           <Link key={href} href={href}>
             <Button

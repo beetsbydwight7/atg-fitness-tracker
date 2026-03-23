@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Dumbbell } from 'lucide-react';
+import { Dumbbell, Search, X } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { WorkoutCalendar } from '@/components/history/WorkoutCalendar';
 import { WorkoutCard } from '@/components/history/WorkoutCard';
 import { WorkoutDetail } from '@/components/history/WorkoutDetail';
@@ -19,6 +20,50 @@ export default function HistoryPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [detailWorkoutId, setDetailWorkoutId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Filtered summaries for list view
+  const filteredSummaries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return summaries.filter((s) => {
+      if (q) {
+        const nameMatch = s.name.toLowerCase().includes(q);
+        const exerciseMatch = s.exerciseNames?.some((n) => n.toLowerCase().includes(q));
+        if (!nameMatch && !exerciseMatch) return false;
+      }
+      if (dateFrom && s.date < dateFrom) return false;
+      if (dateTo && s.date > dateTo) return false;
+      return true;
+    });
+  }, [summaries, searchQuery, dateFrom, dateTo]);
+
+  // Group filtered summaries by week (reuse logic from useHistory)
+  const filteredByWeek = useMemo(() => {
+    const groups: Record<string, typeof filteredSummaries> = {};
+    for (const s of [...filteredSummaries].reverse()) {
+      const d = new Date(s.date + 'T00:00:00');
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      const key = monday.toISOString().slice(0, 10);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    }
+    return Object.entries(groups)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([weekStart, weekSummaries]) => ({
+        weekStart,
+        label: new Date(weekStart + 'T00:00:00').toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }),
+        summaries: weekSummaries,
+      }));
+  }, [filteredSummaries]);
+
+  const hasFilters = searchQuery || dateFrom || dateTo;
 
   // Summaries for the selected date in calendar view
   const selectedDateSummaries = useMemo(() => {
@@ -103,24 +148,81 @@ export default function HistoryPage() {
 
         {/* List Tab */}
         <TabsContent value={1}>
-          <div className="space-y-6 pt-3">
-            {summariesByWeek.map((week) => (
-              <div key={week.weekStart} className="space-y-2">
-                <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {week.label}
-                </h3>
-                <div className="space-y-2">
-                  {week.summaries.map((summary) => (
-                    <WorkoutCard
-                      key={summary.id}
-                      summary={summary}
-                      weightUnit={weightUnit}
-                      onClick={() => handleOpenDetail(summary.workoutId)}
-                    />
-                  ))}
+          <div className="space-y-4 pt-3">
+            {/* Search & filter */}
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-8 pr-8"
+                  placeholder="Search workouts or exercises…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] text-muted-foreground">From</label>
+                  <Input
+                    type="date"
+                    className="text-sm"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] text-muted-foreground">To</label>
+                  <Input
+                    type="date"
+                    className="text-sm"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
                 </div>
               </div>
-            ))}
+              {hasFilters && (
+                <p className="text-xs text-muted-foreground">
+                  {filteredSummaries.length} result{filteredSummaries.length !== 1 ? 's' : ''}
+                  {' — '}
+                  <button
+                    className="underline"
+                    onClick={() => { setSearchQuery(''); setDateFrom(''); setDateTo(''); }}
+                  >
+                    Clear
+                  </button>
+                </p>
+              )}
+            </div>
+
+            {filteredByWeek.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No workouts match your search.</p>
+            ) : (
+              filteredByWeek.map((week) => (
+                <div key={week.weekStart} className="space-y-2">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {week.label}
+                  </h3>
+                  <div className="space-y-2">
+                    {week.summaries.map((summary) => (
+                      <WorkoutCard
+                        key={summary.id}
+                        summary={summary}
+                        weightUnit={weightUnit}
+                        onClick={() => handleOpenDetail(summary.workoutId)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </TabsContent>
       </Tabs>

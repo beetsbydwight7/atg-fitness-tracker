@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, ArrowUp, ArrowDown, Link2, Link2Off } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import { SetRow } from '@/components/workout/SetRow';
 import { cn } from '@/lib/utils';
+import { PlateCalculator } from '@/components/workout/PlateCalculator';
 import type { WorkoutExercise, WorkoutSet, SetType } from '@/lib/types';
 
 interface ExerciseBlockProps {
@@ -18,6 +19,14 @@ interface ExerciseBlockProps {
   onAddSet: () => void;
   onRemoveExercise: () => void;
   weightUnit: 'kg' | 'lbs';
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  supersetGroupId?: string;
+  supersetLabel?: string; // e.g. "A" or "B"
+  onLinkSuperset?: () => void; // link with the next exercise
+  onUnlinkSuperset?: () => void;
 }
 
 export function ExerciseBlock({
@@ -30,6 +39,14 @@ export function ExerciseBlock({
   onAddSet,
   onRemoveExercise,
   weightUnit,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
+  supersetGroupId,
+  supersetLabel,
+  onLinkSuperset,
+  onUnlinkSuperset,
 }: ExerciseBlockProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -54,7 +71,11 @@ export function ExerciseBlock({
   const headers = getColumnHeaders();
 
   return (
-    <Card size="sm">
+    <div className="relative">
+      {supersetGroupId && (
+        <div className="absolute -left-2 top-0 bottom-0 w-0.5 rounded-full bg-primary/40" />
+      )}
+    <Card size="sm" className={cn(supersetGroupId && 'border-primary/30')}>
       <CardHeader className="border-b pb-2">
         <CardTitle className="flex items-center gap-2">
           <button
@@ -66,13 +87,43 @@ export function ExerciseBlock({
             ) : (
               <ChevronUp className="size-4 text-muted-foreground" />
             )}
+            {supersetLabel && (
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {supersetLabel}
+              </span>
+            )}
             <span>{workoutExercise.exerciseName}</span>
           </button>
           <span className="text-xs font-normal text-muted-foreground">
             {completedCount}/{totalCount}
           </span>
         </CardTitle>
-        <CardAction>
+        <CardAction className="flex items-center gap-0.5">
+          {exerciseSetType === 'reps' && (
+            <PlateCalculator
+              weightUnit={weightUnit}
+              initialWeight={workoutExercise.sets.find((s) => s.weight != null)?.weight ?? null}
+            />
+          )}
+          {onMoveUp && (
+            <Button variant="ghost" size="icon-xs" onClick={onMoveUp} disabled={isFirst}>
+              <ArrowUp className="size-3.5" />
+            </Button>
+          )}
+          {onMoveDown && (
+            <Button variant="ghost" size="icon-xs" onClick={onMoveDown} disabled={isLast}>
+              <ArrowDown className="size-3.5" />
+            </Button>
+          )}
+          {supersetGroupId && onUnlinkSuperset ? (
+            <Button variant="ghost" size="icon-xs" onClick={onUnlinkSuperset} title="Remove from superset" className="text-primary">
+              <Link2Off className="size-3.5" />
+            </Button>
+          ) : !supersetGroupId && onLinkSuperset && !isLast ? (
+            <Button variant="ghost" size="icon-xs" onClick={onLinkSuperset} title="Superset with next exercise">
+              <Link2 className="size-3.5" />
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon-xs"
@@ -136,5 +187,6 @@ export function ExerciseBlock({
         </CardContent>
       )}
     </Card>
+    </div>
   );
 }

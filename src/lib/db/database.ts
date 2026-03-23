@@ -5,6 +5,13 @@ import type { Template } from '@/lib/types/template';
 import type { PRRecord } from '@/lib/types/pr';
 import type { AppSettings } from '@/lib/types';
 
+export interface BodyWeightLog {
+  id: string;
+  date: string; // YYYY-MM-DD
+  weight: number; // always stored in kg
+  notes: string;
+}
+
 export class FitnessDatabase extends Dexie {
   exercises!: Table<Exercise, string>;
   workouts!: Table<Workout, string>;
@@ -12,6 +19,7 @@ export class FitnessDatabase extends Dexie {
   templates!: Table<Template, string>;
   prs!: Table<PRRecord, string>;
   settings!: Table<AppSettings, string>;
+  bodyWeightLogs!: Table<BodyWeightLog, string>;
 
   constructor() {
     super('ATGFitnessTracker');
@@ -22,6 +30,15 @@ export class FitnessDatabase extends Dexie {
       templates: '&id, category, isBuiltIn',
       prs: '&id, exerciseId, metric, achievedAt, workoutId',
       settings: '&id',
+    });
+    this.version(2).stores({
+      exercises: '&id, slug, category, *primaryMuscles, isATGSignature, isCustom',
+      workouts: '&id, startedAt, completedAt, templateId, isComplete',
+      workoutSummaries: '&id, workoutId, date, *exerciseIds',
+      templates: '&id, category, isBuiltIn',
+      prs: '&id, exerciseId, metric, achievedAt, workoutId',
+      settings: '&id',
+      bodyWeightLogs: '&id, date',
     });
   }
 }

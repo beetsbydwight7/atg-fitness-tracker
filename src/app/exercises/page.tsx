@@ -3,6 +3,7 @@
 import { useExercises } from '@/lib/hooks/useExercises';
 import { ExerciseFilters } from '@/components/exercises/ExerciseFilters';
 import { ExerciseCard } from '@/components/exercises/ExerciseCard';
+import { CreateExerciseSheet } from '@/components/exercises/CreateExerciseSheet';
 
 export default function ExercisesPage() {
   const {
@@ -18,7 +19,10 @@ export default function ExercisesPage() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b px-4 pt-4 pb-3 space-y-1">
-        <h1 className="text-xl font-bold tracking-tight">Exercise Library</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight">Exercise Library</h1>
+          <CreateExerciseSheet />
+        </div>
         <ExerciseFilters
           searchQuery={filters.searchQuery}
           onSearchChange={setSearchQuery}

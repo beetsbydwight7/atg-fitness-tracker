@@ -22,6 +22,7 @@ import { AddExerciseSheet } from '@/components/workout/AddExerciseSheet';
 import { RestTimer } from '@/components/workout/RestTimer';
 import { useWorkout } from '@/lib/hooks/useWorkout';
 import { useTimer } from '@/lib/hooks/useTimer';
+import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { db } from '@/lib/db/database';
 import { formatTimer, formatDuration } from '@/lib/utils/dateUtils';
 import { formatWeight } from '@/lib/utils/formatWeight';
@@ -54,9 +55,13 @@ function WorkoutPageInner() {
     saveEditedWorkout,
     discardWorkout,
     updateWorkoutName,
+    moveExercise,
+    linkSuperset,
+    unlinkSuperset,
   } = useWorkout();
 
   const timer = useTimer();
+  useWakeLock(isActive);
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const [completedWorkout, setCompletedWorkout] = useState<Workout | null>(null);
@@ -124,6 +129,10 @@ function WorkoutPageInner() {
 
   async function handleCompleteSet(workoutExerciseId: string, setId: string) {
     await completeSet(workoutExerciseId, setId);
+    // Haptic feedback
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(50);
+    }
     // Start rest timer
     const ex = workout?.exercises.find((e) => e.id === workoutExerciseId);
     const restSecs = ex?.restSeconds || defaultRestSeconds;
@@ -285,26 +294,56 @@ function WorkoutPageInner() {
 
         {/* Exercise blocks */}
         <div className="space-y-3 px-4">
-          {workout.exercises.map((we) => {
-            const detail = exerciseDetails?.[we.exerciseId];
-            const setType: SetType = detail?.setType ?? 'reps';
-            const prevEx = previousWorkoutData?.[we.id] ?? null;
+          {(() => {
+            // Build superset label map: groupId -> letter (A, B, C…)
+            const groupLetters: Record<string, string> = {};
+            let letterCode = 65; // 'A'
+            for (const ex of workout.exercises) {
+              if (ex.supersetGroupId && !groupLetters[ex.supersetGroupId]) {
+                groupLetters[ex.supersetGroupId] = String.fromCharCode(letterCode++);
+              }
+            }
 
-            return (
-              <ExerciseBlock
-                key={we.id}
-                workoutExercise={we}
-                exerciseSetType={setType}
-                previousExercise={prevEx}
-                onUpdateSet={(setId, updates) => updateSet(we.id, setId, updates)}
-                onCompleteSet={(setId) => handleCompleteSet(we.id, setId)}
-                onSkipSet={(setId) => skipSet(we.id, setId)}
-                onAddSet={() => addSet(we.id)}
-                onRemoveExercise={() => removeExercise(we.id)}
-                weightUnit={weightUnit}
-              />
-            );
-          })}
+            return workout.exercises.map((we, idx) => {
+              const detail = exerciseDetails?.[we.exerciseId];
+              const setType: SetType = detail?.setType ?? 'reps';
+              const prevEx = previousWorkoutData?.[we.id] ?? null;
+              const nextEx = workout.exercises[idx + 1];
+              const groupLetter = we.supersetGroupId ? groupLetters[we.supersetGroupId] : undefined;
+              // For superset label: show A1, A2 etc within the same group
+              const groupMembers = we.supersetGroupId
+                ? workout.exercises.filter((e) => e.supersetGroupId === we.supersetGroupId)
+                : [];
+              const memberIdx = groupMembers.findIndex((e) => e.id === we.id);
+              const supersetLabel = groupLetter
+                ? `${groupLetter}${memberIdx + 1}`
+                : undefined;
+
+              return (
+                <ExerciseBlock
+                  key={we.id}
+                  workoutExercise={we}
+                  exerciseSetType={setType}
+                  previousExercise={prevEx}
+                  onUpdateSet={(setId, updates) => updateSet(we.id, setId, updates)}
+                  onCompleteSet={(setId) => handleCompleteSet(we.id, setId)}
+                  onSkipSet={(setId) => skipSet(we.id, setId)}
+                  onAddSet={() => addSet(we.id)}
+                  onRemoveExercise={() => removeExercise(we.id)}
+                  onMoveUp={() => moveExercise(we.id, 'up')}
+                  onMoveDown={() => moveExercise(we.id, 'down')}
+                  isFirst={idx === 0}
+                  isLast={idx === workout.exercises.length - 1}
+                  supersetGroupId={we.supersetGroupId}
+                  supersetLabel={supersetLabel}
+                  onLinkSuperset={nextEx ? () => linkSuperset(we.id, nextEx.id) : undefined}
+                  onUnlinkSuperset={() => unlinkSuperset(we.id)}
+                  weightUnit={weightUnit}
+                />
+              );
+            });
+          })()}
+
 
           {workout.exercises.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-12 text-center">

@@ -36,6 +36,7 @@ export default function ProgressPage() {
     bestSets,
     prCount,
     exercises,
+    muscleGroupVolume,
     isLoading,
   } = useProgress(selectedExerciseId || undefined);
 
@@ -148,6 +149,42 @@ export default function ProgressPage() {
                 <VolumeChart data={weeklyVolume} weightUnit={weightUnit} />
               </CardContent>
             </Card>
+
+            {/* Muscle Group Volume */}
+            {muscleGroupVolume.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Dumbbell className="size-4" />
+                    Volume by Muscle Group
+                    <Badge variant="secondary" className="ml-auto text-xs">12 wks</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {(() => {
+                      const max = muscleGroupVolume[0]?.volume ?? 1;
+                      return muscleGroupVolume.map(({ muscle, volume }) => (
+                        <div key={muscle} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium capitalize">{muscle.replace(/_/g, ' ')}</span>
+                            <span className="text-muted-foreground">
+                              {formatWeight(volume, weightUnit)}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-primary transition-all"
+                              style={{ width: `${(volume / max) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 

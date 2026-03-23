@@ -24,6 +24,7 @@ export interface WorkoutExercise {
   sets: WorkoutSet[];
   restSeconds: number;
   notes: string;
+  supersetGroupId?: string; // exercises sharing this id are a superset
 }
 
 export interface Workout {

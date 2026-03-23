@@ -219,6 +219,42 @@ export function useProgress(exerciseId?: string) {
     return allPrs?.length ?? 0;
   }, [allPrs]);
 
+  // Volume per muscle group over the last 12 weeks
+  const muscleGroupVolume = useMemo(() => {
+    if (!workouts || !exercises) return [];
+    const now = new Date();
+    const twelveWeeksMs = 12 * 7 * 24 * 60 * 60 * 1000;
+    const cutoff = new Date(now.getTime() - twelveWeeksMs);
+
+    const exerciseMap: Record<string, typeof exercises[0]> = {};
+    for (const ex of exercises) exerciseMap[ex.id] = ex;
+
+    const volumeMap: Record<string, number> = {};
+
+    for (const workout of workouts) {
+      if (!workout.isComplete || !workout.completedAt) continue;
+      const completedAt = workout.completedAt instanceof Date ? workout.completedAt : new Date(workout.completedAt);
+      if (completedAt < cutoff) continue;
+
+      for (const ex of workout.exercises) {
+        const exerciseDef = exerciseMap[ex.exerciseId];
+        const muscles = exerciseDef?.primaryMuscles ?? [];
+        for (const set of ex.sets) {
+          if (set.status !== 'completed' || set.weight === null || set.reps === null) continue;
+          const vol = set.weight * set.reps;
+          for (const muscle of muscles) {
+            volumeMap[muscle] = (volumeMap[muscle] ?? 0) + vol;
+          }
+        }
+      }
+    }
+
+    return Object.entries(volumeMap)
+      .map(([muscle, volume]) => ({ muscle, volume: Math.round(volume) }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 10);
+  }, [workouts, exercises]);
+
   return {
     summaries: summaries ?? [],
     weeklyVolume,
@@ -229,6 +265,7 @@ export function useProgress(exerciseId?: string) {
     allPrs: allPrs ?? [],
     prCount,
     exercises: exercises ?? [],
+    muscleGroupVolume,
     isLoading,
   };
 }
