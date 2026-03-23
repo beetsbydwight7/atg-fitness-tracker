@@ -23,6 +23,7 @@ const CATEGORIES: { value: ExerciseCategory | 'ALL'; label: string }[] = [
   { value: 'TRADITIONAL_UPPER', label: 'Traditional Upper' },
   { value: 'SLED', label: 'Sled' },
   { value: 'GYMNASTICS', label: 'Gymnastics' },
+  { value: 'NECK', label: 'Neck' },
 ];
 
 const MUSCLE_GROUPS: { value: MuscleGroup; label: string }[] = [

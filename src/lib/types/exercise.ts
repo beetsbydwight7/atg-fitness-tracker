@@ -37,6 +37,7 @@ export type EquipmentType =
   | 'bench'
   | 'box'
   | 'foam_roller'
+  | 'iron_neck'
   | 'none';
 
 export type ExerciseCategory =
@@ -46,7 +47,8 @@ export type ExerciseCategory =
   | 'TRADITIONAL_LOWER'
   | 'TRADITIONAL_UPPER'
   | 'SLED'
-  | 'GYMNASTICS';
+  | 'GYMNASTICS'
+  | 'NECK';
 
 export type SetType = 'reps' | 'duration' | 'distance' | 'bodyweight_reps';
 

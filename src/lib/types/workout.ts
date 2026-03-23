@@ -8,6 +8,7 @@ export interface WorkoutSet {
   distance: number | null; // meters
   rir: number | null;
   rpe: number | null;
+  bandResistance: string | null; // for band/iron_neck exercises
   isBodyweight: boolean;
   isPR: boolean;
   status: 'pending' | 'completed' | 'skipped';

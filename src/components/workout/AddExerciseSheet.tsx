@@ -32,6 +32,7 @@ const CATEGORIES: { label: string; value: ExerciseCategory | 'ALL' }[] = [
   { label: 'Traditional Upper', value: 'TRADITIONAL_UPPER' },
   { label: 'Sled', value: 'SLED' },
   { label: 'Gymnastics', value: 'GYMNASTICS' },
+  { label: 'Neck', value: 'NECK' },
 ];
 
 export function AddExerciseSheet({

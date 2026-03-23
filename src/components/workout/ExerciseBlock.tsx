@@ -8,10 +8,12 @@ import { SetRow } from '@/components/workout/SetRow';
 import { cn } from '@/lib/utils';
 import { PlateCalculator } from '@/components/workout/PlateCalculator';
 import type { WorkoutExercise, WorkoutSet, SetType } from '@/lib/types';
+import type { EquipmentType } from '@/lib/types/exercise';
 
 interface ExerciseBlockProps {
   workoutExercise: WorkoutExercise;
   exerciseSetType: SetType;
+  exerciseEquipment: EquipmentType[];
   previousExercise?: WorkoutExercise | null;
   onUpdateSet: (setId: string, updates: Partial<WorkoutSet>) => void;
   onCompleteSet: (setId: string) => void;
@@ -32,6 +34,7 @@ interface ExerciseBlockProps {
 export function ExerciseBlock({
   workoutExercise,
   exerciseSetType,
+  exerciseEquipment,
   previousExercise,
   onUpdateSet,
   onCompleteSet,
@@ -55,16 +58,26 @@ export function ExerciseBlock({
   ).length;
   const totalCount = workoutExercise.sets.length;
 
+  const WEIGHT_EQUIPMENT: EquipmentType[] = [
+    'barbell', 'dumbbell', 'kettlebell', 'cable', 'machine', 'tib_bar', 'sled',
+  ];
+  const isResistanceExercise =
+    (exerciseEquipment.includes('band') || exerciseEquipment.includes('iron_neck')) &&
+    !exerciseEquipment.some((e) => WEIGHT_EQUIPMENT.includes(e));
+
   function getColumnHeaders() {
     switch (exerciseSetType) {
       case 'duration':
-        return { col1: 'Weight', col2: 'Duration' };
+        return { col1: isResistanceExercise ? 'Resistance' : 'Weight', col2: 'Duration' };
       case 'distance':
-        return { col1: 'Weight', col2: 'Distance' };
+        return { col1: isResistanceExercise ? 'Resistance' : 'Weight', col2: 'Distance' };
       case 'bodyweight_reps':
         return { col1: null, col2: 'Reps' };
       default:
-        return { col1: weightUnit === 'kg' ? 'kg' : 'lbs', col2: 'Reps' };
+        return {
+          col1: isResistanceExercise ? 'Resistance' : (weightUnit === 'kg' ? 'kg' : 'lbs'),
+          col2: 'Reps',
+        };
     }
   }
 
@@ -165,6 +178,7 @@ export function ExerciseBlock({
                 key={set.id}
                 set={set}
                 setType={exerciseSetType}
+                exerciseEquipment={exerciseEquipment}
                 previousSet={prevSet}
                 onUpdate={(updates) => onUpdateSet(set.id, updates)}
                 onComplete={() => onCompleteSet(set.id)}

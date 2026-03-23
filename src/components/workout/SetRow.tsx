@@ -8,10 +8,25 @@ import { PRBadge } from '@/components/workout/PRBadge';
 import { cn } from '@/lib/utils';
 import { displayWeight, parseWeightToKg } from '@/lib/utils/formatWeight';
 import type { WorkoutSet, SetType } from '@/lib/types';
+import type { EquipmentType } from '@/lib/types/exercise';
+
+// Exercises using only band/iron_neck (no weight-trackable equipment) use a
+// resistance label instead of a numeric weight.
+const WEIGHT_EQUIPMENT: EquipmentType[] = [
+  'barbell', 'dumbbell', 'kettlebell', 'cable', 'machine', 'tib_bar', 'sled',
+];
+
+function usesResistanceField(equipment: EquipmentType[]): boolean {
+  return (
+    (equipment.includes('band') || equipment.includes('iron_neck')) &&
+    !equipment.some((e) => WEIGHT_EQUIPMENT.includes(e))
+  );
+}
 
 interface SetRowProps {
   set: WorkoutSet;
   setType: SetType;
+  exerciseEquipment: EquipmentType[];
   previousSet?: WorkoutSet | null;
   onUpdate: (updates: Partial<WorkoutSet>) => void;
   onComplete: () => void;
@@ -22,12 +37,14 @@ interface SetRowProps {
 export function SetRow({
   set,
   setType,
+  exerciseEquipment,
   previousSet,
   onUpdate,
   onComplete,
   onSkip,
   weightUnit,
 }: SetRowProps) {
+  const isResistanceExercise = usesResistanceField(exerciseEquipment);
   const isCompleted = set.status === 'completed';
   const isSkipped = set.status === 'skipped';
   const isPending = set.status === 'pending';
@@ -40,6 +57,7 @@ export function SetRow({
   const [repsInput, setRepsInput] = useState(set.reps?.toString() ?? '');
   const [durationInput, setDurationInput] = useState(set.duration?.toString() ?? '');
   const [distanceInput, setDistanceInput] = useState(set.distance?.toString() ?? '');
+  const [resistanceInput, setResistanceInput] = useState(set.bandResistance ?? '');
   const [notesOpen, setNotesOpen] = useState(false);
 
   // Re-sync local state when the set identity changes (different set mounted
@@ -51,6 +69,7 @@ export function SetRow({
     setRepsInput(set.reps?.toString() ?? '');
     setDurationInput(set.duration?.toString() ?? '');
     setDistanceInput(set.distance?.toString() ?? '');
+    setResistanceInput(set.bandResistance ?? '');
   }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const prevWeightDisplay = previousSet?.weight
@@ -58,6 +77,7 @@ export function SetRow({
     : '';
   const prevRepsDisplay = previousSet?.reps?.toString() ?? '';
   const prevDurationDisplay = previousSet?.duration?.toString() ?? '';
+  const prevResistanceDisplay = previousSet?.bandResistance ?? '';
 
   // For completed/skipped sets, display the committed value from state.
   const committedWeightDisplay =
@@ -65,6 +85,7 @@ export function SetRow({
   const committedRepsDisplay = set.reps?.toString() ?? '';
   const committedDurationDisplay = set.duration?.toString() ?? '';
   const committedDistanceDisplay = set.distance?.toString() ?? '';
+  const committedResistanceDisplay = set.bandResistance ?? '';
 
   function handleWeightChange(value: string) {
     setWeightInput(value);
@@ -94,6 +115,11 @@ export function SetRow({
     onUpdate({ distance: isNaN(num) ? null : num });
   }
 
+  function handleResistanceChange(value: string) {
+    setResistanceInput(value);
+    onUpdate({ bandResistance: value || null });
+  }
+
   return (
     <div
       className={cn(
@@ -117,16 +143,27 @@ export function SetRow({
         {set.setNumber}
       </span>
 
-      {/* Weight input (not shown for bodyweight_reps) */}
+      {/* Resistance input (band / iron_neck) or weight input */}
       {setType !== 'bodyweight_reps' && (
-        <Input
-          className="h-7 text-center text-sm"
-          inputMode="decimal"
-          placeholder={prevWeightDisplay || (weightUnit === 'kg' ? 'kg' : 'lbs')}
-          value={isPending ? weightInput : committedWeightDisplay}
-          onChange={(e) => handleWeightChange(e.target.value)}
-          disabled={!isPending}
-        />
+        isResistanceExercise ? (
+          <Input
+            className="h-7 text-center text-sm"
+            inputMode="text"
+            placeholder={prevResistanceDisplay || 'Resistance'}
+            value={isPending ? resistanceInput : committedResistanceDisplay}
+            onChange={(e) => handleResistanceChange(e.target.value)}
+            disabled={!isPending}
+          />
+        ) : (
+          <Input
+            className="h-7 text-center text-sm"
+            inputMode="decimal"
+            placeholder={prevWeightDisplay || (weightUnit === 'kg' ? 'kg' : 'lbs')}
+            value={isPending ? weightInput : committedWeightDisplay}
+            onChange={(e) => handleWeightChange(e.target.value)}
+            disabled={!isPending}
+          />
+        )
       )}
 
       {/* Reps input */}
