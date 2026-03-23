@@ -25,6 +25,9 @@ interface UseWorkoutReturn {
   addSet: (workoutExerciseId: string) => Promise<void>;
   removeSet: (workoutExerciseId: string, setId: string) => Promise<void>;
   updateSet: (workoutExerciseId: string, setId: string, updates: Partial<WorkoutSet>) => Promise<void>;
+  moveExercise: (workoutExerciseId: string, direction: 'up' | 'down') => void;
+  linkSuperset: (idA: string, idB: string) => void;
+  unlinkSuperset: (workoutExerciseId: string) => void;
   completeSet: (workoutExerciseId: string, setId: string) => Promise<void>;
   skipSet: (workoutExerciseId: string, setId: string) => Promise<void>;
   completeWorkout: (currentWorkout: Workout) => Promise<WorkoutSummary | null>;
@@ -225,6 +228,60 @@ export function useWorkout(): UseWorkoutReturn {
           .filter((e) => e.id !== workoutExerciseId)
           .map((e, i) => ({ ...e, order: i })),
       }));
+    },
+    [updateWorkoutState]
+  );
+
+  const linkSuperset = useCallback(
+    (idA: string, idB: string) => {
+      updateWorkoutState((prev) => {
+        const groupId = uuid();
+        return {
+          ...prev,
+          exercises: prev.exercises.map((e) =>
+            e.id === idA || e.id === idB ? { ...e, supersetGroupId: groupId } : e
+          ),
+        };
+      });
+    },
+    [updateWorkoutState]
+  );
+
+  const unlinkSuperset = useCallback(
+    (workoutExerciseId: string) => {
+      updateWorkoutState((prev) => {
+        const target = prev.exercises.find((e) => e.id === workoutExerciseId);
+        if (!target?.supersetGroupId) return prev;
+        const groupId = target.supersetGroupId;
+        const groupMembers = prev.exercises.filter((e) => e.supersetGroupId === groupId);
+        return {
+          ...prev,
+          exercises: prev.exercises.map((e) => {
+            if (e.supersetGroupId !== groupId) return e;
+            // If only 2 in group, unlink both; otherwise just unlink the selected one
+            if (groupMembers.length <= 2 || e.id === workoutExerciseId) {
+              const { supersetGroupId: _, ...rest } = e;
+              return rest as typeof e;
+            }
+            return e;
+          }),
+        };
+      });
+    },
+    [updateWorkoutState]
+  );
+
+  const moveExercise = useCallback(
+    (workoutExerciseId: string, direction: 'up' | 'down') => {
+      updateWorkoutState((prev) => {
+        const idx = prev.exercises.findIndex((e) => e.id === workoutExerciseId);
+        if (idx === -1) return prev;
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= prev.exercises.length) return prev;
+        const exercises = [...prev.exercises];
+        [exercises[idx], exercises[swapIdx]] = [exercises[swapIdx], exercises[idx]];
+        return { ...prev, exercises: exercises.map((e, i) => ({ ...e, order: i })) };
+      });
     },
     [updateWorkoutState]
   );
@@ -514,5 +571,8 @@ export function useWorkout(): UseWorkoutReturn {
     saveEditedWorkout,
     discardWorkout,
     updateWorkoutName,
+    moveExercise,
+    linkSuperset,
+    unlinkSuperset,
   };
 }

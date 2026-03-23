@@ -40,6 +40,42 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function exportCSV() {
+    const workouts = await db.workouts.where('isComplete').equals(1).toArray();
+    const rows: string[] = [
+      ['Date', 'Workout', 'Exercise', 'Set #', 'Weight (kg)', 'Reps', 'Duration (s)', 'Distance (m)', 'RPE', 'RIR', 'Notes', 'PR'].join(','),
+    ];
+    for (const w of workouts) {
+      const date = w.completedAt ? new Date(w.completedAt).toISOString().slice(0, 10) : '';
+      for (const ex of w.exercises) {
+        for (const s of ex.sets) {
+          if (s.status !== 'completed') continue;
+          rows.push([
+            date,
+            `"${w.name.replace(/"/g, '""')}"`,
+            `"${ex.exerciseName.replace(/"/g, '""')}"`,
+            s.setNumber,
+            s.weight ?? '',
+            s.reps ?? '',
+            s.duration ?? '',
+            s.distance ?? '',
+            s.rpe ?? '',
+            s.rir ?? '',
+            `"${(s.notes ?? '').replace(/"/g, '""')}"`,
+            s.isPR ? 'Yes' : '',
+          ].join(','));
+        }
+      }
+    }
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `atg-fitness-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function importData(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -124,6 +160,10 @@ export default function SettingsPage() {
             <Button variant="outline" className="w-full justify-start gap-2" onClick={exportData}>
               <Download className="h-4 w-4" />
               Export Data (JSON)
+            </Button>
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={exportCSV}>
+              <Download className="h-4 w-4" />
+              Export Workouts (CSV)
             </Button>
             <div>
               <label className="cursor-pointer">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PRBadge } from '@/components/workout/PRBadge';
@@ -40,6 +40,7 @@ export function SetRow({
   const [repsInput, setRepsInput] = useState(set.reps?.toString() ?? '');
   const [durationInput, setDurationInput] = useState(set.duration?.toString() ?? '');
   const [distanceInput, setDistanceInput] = useState(set.distance?.toString() ?? '');
+  const [notesOpen, setNotesOpen] = useState(false);
 
   // Re-sync local state when the set identity changes (different set mounted
   // into the same row slot, e.g. after a set is removed).
@@ -186,6 +187,37 @@ export function SetRow({
       >
         <X className="size-3.5" />
       </Button>
+
+      {/* Notes toggle */}
+      {isPending && (
+        <button
+          onClick={() => setNotesOpen((o) => !o)}
+          className={cn(
+            'col-span-full flex items-center gap-1 px-1 text-[11px]',
+            notesOpen || set.notes ? 'text-primary' : 'text-muted-foreground'
+          )}
+        >
+          <MessageSquare className="size-3" />
+          {set.notes ? set.notes : 'Add note'}
+        </button>
+      )}
+
+      {notesOpen && isPending && (
+        <Input
+          className="col-span-full h-7 text-xs"
+          placeholder="Set note…"
+          value={set.notes}
+          onChange={(e) => onUpdate({ notes: e.target.value })}
+          autoFocus
+        />
+      )}
+
+      {/* Show note on completed sets */}
+      {!isPending && set.notes && (
+        <p className="col-span-full px-1 text-[11px] text-muted-foreground italic">
+          {set.notes}
+        </p>
+      )}
 
       {/* PR badge */}
       {set.isPR && (
