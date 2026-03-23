@@ -25,7 +25,7 @@ interface UseWorkoutReturn {
   updateSet: (workoutExerciseId: string, setId: string, updates: Partial<WorkoutSet>) => Promise<void>;
   completeSet: (workoutExerciseId: string, setId: string) => Promise<void>;
   skipSet: (workoutExerciseId: string, setId: string) => Promise<void>;
-  completeWorkout: () => Promise<WorkoutSummary | null>;
+  completeWorkout: (currentWorkout: Workout) => Promise<WorkoutSummary | null>;
   discardWorkout: () => Promise<void>;
   updateWorkoutName: (name: string) => void;
 }
@@ -358,45 +358,51 @@ export function useWorkout(): UseWorkoutReturn {
     [updateWorkoutState]
   );
 
-  const completeWorkout = useCallback(async (): Promise<WorkoutSummary | null> => {
-    const w = workoutRef.current;
-    if (!w) return null;
+  const completeWorkout = useCallback(
+    async (currentWorkout: Workout): Promise<WorkoutSummary | null> => {
+      // Receive the workout from the caller (page component) rather than
+      // reading workoutRef.current, which may lag a render behind the
+      // committed state when the user taps Finish immediately after
+      // completing the last set.
+      const w = currentWorkout;
 
-    const now = new Date();
-    const durationSeconds = getElapsedSeconds(new Date(w.startedAt));
-    const volume = calculateWorkoutVolume(w.exercises);
-    const completed = calculateCompletedSets(w.exercises);
-    const prCount = w.exercises.reduce(
-      (count, ex) => count + ex.sets.filter((s) => s.isPR).length,
-      0
-    );
+      const now = new Date();
+      const durationSeconds = getElapsedSeconds(new Date(w.startedAt));
+      const volume = calculateWorkoutVolume(w.exercises);
+      const completed = calculateCompletedSets(w.exercises);
+      const prCount = w.exercises.reduce(
+        (count, ex) => count + ex.sets.filter((s) => s.isPR).length,
+        0
+      );
 
-    const completedWorkout: Workout = {
-      ...w,
-      completedAt: now,
-      durationSeconds,
-      isComplete: true,
-    };
+      const completedWorkout: Workout = {
+        ...w,
+        completedAt: now,
+        durationSeconds,
+        isComplete: true,
+      };
 
-    const summary: WorkoutSummary = {
-      id: uuid(),
-      workoutId: w.id,
-      date: toDateString(now),
-      name: w.name,
-      durationSeconds,
-      totalSets: completed,
-      totalVolume: volume,
-      exerciseIds: w.exercises.map((e) => e.exerciseId),
-      exerciseNames: w.exercises.map((e) => e.exerciseName),
-      prCount,
-    };
+      const summary: WorkoutSummary = {
+        id: uuid(),
+        workoutId: w.id,
+        date: toDateString(now),
+        name: w.name,
+        durationSeconds,
+        totalSets: completed,
+        totalVolume: volume,
+        exerciseIds: w.exercises.map((e) => e.exerciseId),
+        exerciseNames: w.exercises.map((e) => e.exerciseName),
+        prCount,
+      };
 
-    await db.workouts.put(completedWorkout);
-    await db.workoutSummaries.put(summary);
+      await db.workouts.put(completedWorkout);
+      await db.workoutSummaries.put(summary);
 
-    setWorkout(completedWorkout);
-    return summary;
-  }, []);
+      setWorkout(completedWorkout);
+      return summary;
+    },
+    []
+  );
 
   const discardWorkout = useCallback(async () => {
     if (!workout) return;
