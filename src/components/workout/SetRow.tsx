@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,17 +32,41 @@ export function SetRow({
   const isSkipped = set.status === 'skipped';
   const isPending = set.status === 'pending';
 
+  // Local controlled state for inputs while the set is pending.
+  // Initialised from the set's current values (e.g. template defaults).
+  const [weightInput, setWeightInput] = useState(
+    set.weight != null ? displayWeight(set.weight, weightUnit).toString() : ''
+  );
+  const [repsInput, setRepsInput] = useState(set.reps?.toString() ?? '');
+  const [durationInput, setDurationInput] = useState(set.duration?.toString() ?? '');
+  const [distanceInput, setDistanceInput] = useState(set.distance?.toString() ?? '');
+
+  // Re-sync local state when the set identity changes (different set mounted
+  // into the same row slot, e.g. after a set is removed).
+  useEffect(() => {
+    setWeightInput(
+      set.weight != null ? displayWeight(set.weight, weightUnit).toString() : ''
+    );
+    setRepsInput(set.reps?.toString() ?? '');
+    setDurationInput(set.duration?.toString() ?? '');
+    setDistanceInput(set.distance?.toString() ?? '');
+  }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const prevWeightDisplay = previousSet?.weight
     ? displayWeight(previousSet.weight, weightUnit).toString()
     : '';
   const prevRepsDisplay = previousSet?.reps?.toString() ?? '';
   const prevDurationDisplay = previousSet?.duration?.toString() ?? '';
 
-  const currentWeightDisplay = set.weight
-    ? displayWeight(set.weight, weightUnit).toString()
-    : '';
+  // For completed/skipped sets, display the committed value from state.
+  const committedWeightDisplay =
+    set.weight != null ? displayWeight(set.weight, weightUnit).toString() : '';
+  const committedRepsDisplay = set.reps?.toString() ?? '';
+  const committedDurationDisplay = set.duration?.toString() ?? '';
+  const committedDistanceDisplay = set.distance?.toString() ?? '';
 
   function handleWeightChange(value: string) {
+    setWeightInput(value);
     const num = parseFloat(value);
     if (value === '' || value === '.') {
       onUpdate({ weight: null });
@@ -51,13 +76,21 @@ export function SetRow({
   }
 
   function handleRepsChange(value: string) {
+    setRepsInput(value);
     const num = parseInt(value, 10);
     onUpdate({ reps: isNaN(num) ? null : num });
   }
 
   function handleDurationChange(value: string) {
+    setDurationInput(value);
     const num = parseInt(value, 10);
     onUpdate({ duration: isNaN(num) ? null : num });
+  }
+
+  function handleDistanceChange(value: string) {
+    setDistanceInput(value);
+    const num = parseFloat(value);
+    onUpdate({ distance: isNaN(num) ? null : num });
   }
 
   return (
@@ -89,53 +122,46 @@ export function SetRow({
           className="h-7 text-center text-sm"
           inputMode="decimal"
           placeholder={prevWeightDisplay || (weightUnit === 'kg' ? 'kg' : 'lbs')}
-          value={isCompleted || isSkipped ? currentWeightDisplay : undefined}
-          defaultValue={isPending ? currentWeightDisplay : undefined}
+          value={isPending ? weightInput : committedWeightDisplay}
           onChange={(e) => handleWeightChange(e.target.value)}
           disabled={!isPending}
         />
       )}
 
-      {/* Reps / Duration / Distance input */}
+      {/* Reps input */}
       {(setType === 'reps' || setType === 'bodyweight_reps') && (
         <Input
           className="h-7 text-center text-sm"
           inputMode="numeric"
           placeholder={prevRepsDisplay || 'Reps'}
-          value={isCompleted || isSkipped ? (set.reps?.toString() ?? '') : undefined}
-          defaultValue={isPending ? (set.reps?.toString() ?? '') : undefined}
+          value={isPending ? repsInput : committedRepsDisplay}
           onChange={(e) => handleRepsChange(e.target.value)}
           disabled={!isPending}
         />
       )}
 
+      {/* Duration input */}
       {setType === 'duration' && (
         <Input
           className="h-7 text-center text-sm"
           inputMode="numeric"
           placeholder={prevDurationDisplay || 'Sec'}
-          value={isCompleted || isSkipped ? (set.duration?.toString() ?? '') : undefined}
-          defaultValue={isPending ? (set.duration?.toString() ?? '') : undefined}
+          value={isPending ? durationInput : committedDurationDisplay}
           onChange={(e) => handleDurationChange(e.target.value)}
           disabled={!isPending}
         />
       )}
 
+      {/* Distance input */}
       {setType === 'distance' && (
-        <>
-          <Input
-            className="h-7 text-center text-sm"
-            inputMode="decimal"
-            placeholder="Meters"
-            value={isCompleted || isSkipped ? (set.distance?.toString() ?? '') : undefined}
-            defaultValue={isPending ? (set.distance?.toString() ?? '') : undefined}
-            onChange={(e) => {
-              const num = parseFloat(e.target.value);
-              onUpdate({ distance: isNaN(num) ? null : num });
-            }}
-            disabled={!isPending}
-          />
-        </>
+        <Input
+          className="h-7 text-center text-sm"
+          inputMode="decimal"
+          placeholder="Meters"
+          value={isPending ? distanceInput : committedDistanceDisplay}
+          onChange={(e) => handleDistanceChange(e.target.value)}
+          disabled={!isPending}
+        />
       )}
 
       {/* Complete button */}

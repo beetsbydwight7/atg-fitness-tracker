@@ -291,40 +291,51 @@ export function useWorkout(): UseWorkoutReturn {
       const set = ex.sets.find((s) => s.id === setId);
       if (!set) return;
 
-      const completedSet: WorkoutSet = {
-        ...set,
-        status: 'completed',
-        completedAt: new Date(),
-      };
+      const completedAt = new Date();
 
-      // Check for PRs
-      const { isPR } = await checkForPRs(
-        completedSet,
-        ex.exerciseId,
-        ex.exerciseName,
-        w.id
-      );
-
+      // Mark as completed IMMEDIATELY so that completeWorkout always sees the
+      // correct count and volume regardless of how long the async PR check takes.
       updateWorkoutState((prev) => ({
         ...prev,
         exercises: prev.exercises.map((e) => {
           if (e.id !== workoutExerciseId) return e;
           return {
             ...e,
-            sets: e.sets.map((s) => {
-              if (s.id !== setId) return s;
-              // Merge onto the latest `prev` set so any weight/reps the user
-              // typed during the async PR check are preserved.
-              return {
-                ...s,
-                status: 'completed' as const,
-                completedAt: completedSet.completedAt,
-                isPR,
-              };
-            }),
+            sets: e.sets.map((s) =>
+              s.id === setId
+                ? { ...s, status: 'completed' as const, completedAt }
+                : s
+            ),
           };
         }),
       }));
+
+      // Run PR detection asynchronously; failures must not undo completion.
+      const completedSet: WorkoutSet = { ...set, status: 'completed', completedAt };
+      try {
+        const { isPR } = await checkForPRs(
+          completedSet,
+          ex.exerciseId,
+          ex.exerciseName,
+          w.id
+        );
+        if (isPR) {
+          updateWorkoutState((prev) => ({
+            ...prev,
+            exercises: prev.exercises.map((e) => {
+              if (e.id !== workoutExerciseId) return e;
+              return {
+                ...e,
+                sets: e.sets.map((s) =>
+                  s.id === setId ? { ...s, isPR: true } : s
+                ),
+              };
+            }),
+          }));
+        }
+      } catch {
+        // PR detection failed silently; the set remains completed.
+      }
     },
     [updateWorkoutState]
   );
