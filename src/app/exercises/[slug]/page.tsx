@@ -25,6 +25,7 @@ const CATEGORY_LABELS: Record<ExerciseCategory, string> = {
   TRADITIONAL_UPPER: 'Traditional Upper',
   SLED: 'Sled',
   GYMNASTICS: 'Gymnastics',
+  NECK: 'Neck',
 };
 
 const CATEGORY_COLORS: Record<ExerciseCategory, string> = {
@@ -35,6 +36,7 @@ const CATEGORY_COLORS: Record<ExerciseCategory, string> = {
   TRADITIONAL_UPPER: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
   SLED: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
   GYMNASTICS: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  NECK: 'bg-teal-500/15 text-teal-400 border-teal-500/30',
 };
 
 function formatMuscle(muscle: string): string {

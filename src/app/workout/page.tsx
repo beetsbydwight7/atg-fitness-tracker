@@ -324,6 +324,7 @@ function WorkoutPageInner() {
                   key={we.id}
                   workoutExercise={we}
                   exerciseSetType={setType}
+                  exerciseEquipment={detail?.equipment ?? []}
                   previousExercise={prevEx}
                   onUpdateSet={(setId, updates) => updateSet(we.id, setId, updates)}
                   onCompleteSet={(setId) => handleCompleteSet(we.id, setId)}
