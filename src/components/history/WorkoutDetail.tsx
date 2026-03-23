@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Trophy, Dumbbell, Clock, Flame, Share2, CheckCheck } from 'lucide-react';
+import { v4 as uuid } from 'uuid';
 import {
   Sheet,
   SheetContent,
@@ -16,6 +17,7 @@ import { formatWeight, displayWeight } from '@/lib/utils/formatWeight';
 import { db } from '@/lib/db/database';
 import { generateWhoopText, shareWorkout } from '@/lib/utils/workoutShare';
 import type { Workout } from '@/lib/types';
+import type { Template } from '@/lib/types/template';
 
 interface WorkoutDetailProps {
   workoutId: string | null;
@@ -33,6 +35,48 @@ export function WorkoutDetail({
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'shared'>('idle');
+  const [templateStatus, setTemplateStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  async function handleUseAsTemplate() {
+    if (!workout) return;
+    setTemplateStatus('saving');
+    const now = new Date();
+    const template: Template = {
+      id: uuid(),
+      name: workout.name,
+      description: '',
+      category: 'custom',
+      estimatedMinutes: workout.durationSeconds ? Math.round(workout.durationSeconds / 60) : 0,
+      difficulty: 3,
+      exercises: workout.exercises.map((ex, i) => {
+        const completedSets = ex.sets.filter((s) => s.status === 'completed');
+        const allSets = ex.sets;
+        const representativeSets = completedSets.length > 0 ? completedSets : allSets;
+        const avgReps = representativeSets.length > 0
+          ? Math.round(
+              representativeSets.reduce((sum, s) => sum + (s.reps ?? 0), 0) /
+                representativeSets.length
+            )
+          : null;
+        return {
+          exerciseId: ex.exerciseId,
+          exerciseName: ex.exerciseName,
+          exerciseSlug: ex.exerciseSlug,
+          order: i,
+          targetSets: allSets.length || 3,
+          targetReps: avgReps,
+          targetDuration: representativeSets[0]?.duration ?? null,
+          restSeconds: ex.restSeconds,
+        };
+      }),
+      isBuiltIn: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.templates.put(template);
+    setTemplateStatus('saved');
+    setTimeout(() => setTemplateStatus('idle'), 2500);
+  }
 
   async function handleShare() {
     if (!workout) return;
@@ -93,7 +137,7 @@ export function WorkoutDetail({
 
                 <div className="ml-6 space-y-1">
                   {exercise.sets
-                    .filter((s) => s.status === 'completed')
+                    .filter((s) => s.status !== 'skipped')
                     .map((set) => (
                       <div
                         key={set.id}
@@ -101,7 +145,9 @@ export function WorkoutDetail({
                           'flex items-center justify-between rounded-md px-2 py-1 text-xs',
                           set.isPR
                             ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                            : 'text-muted-foreground'
+                            : set.status === 'completed'
+                              ? 'text-foreground'
+                              : 'text-muted-foreground'
                         )}
                       >
                         <span className="font-mono text-muted-foreground">
@@ -125,6 +171,11 @@ export function WorkoutDetail({
                           )}
                           {set.isPR && (
                             <Trophy className="size-3 text-amber-500" />
+                          )}
+                          {set.status === 'pending' && (
+                            <span className="text-[10px] text-muted-foreground/60">
+                              —
+                            </span>
                           )}
                         </div>
                       </div>
@@ -174,9 +225,23 @@ export function WorkoutDetail({
             </Button>
 
             {/* Use as Template button */}
-            <Button variant="outline" className="w-full" disabled>
-              <Flame className="size-4" />
-              Use as Template
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={handleUseAsTemplate}
+              disabled={templateStatus === 'saving'}
+            >
+              {templateStatus === 'saved' ? (
+                <>
+                  <CheckCheck className="size-4 text-green-500" />
+                  Saved as Template!
+                </>
+              ) : (
+                <>
+                  <Flame className="size-4" />
+                  Use as Template
+                </>
+              )}
             </Button>
           </div>
         )}

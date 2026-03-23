@@ -60,16 +60,16 @@ export function WorkoutCard({ summary, weightUnit, onClick }: WorkoutCardProps) 
         </div>
 
         {/* Exercise badges */}
-        {summary.exerciseIds.length > 0 && (
+        {(summary.exerciseNames ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {summary.exerciseIds.slice(0, 5).map((name, i) => (
+            {(summary.exerciseNames ?? []).slice(0, 5).map((name, i) => (
               <Badge key={i} variant="secondary" className="text-[10px]">
                 {name}
               </Badge>
             ))}
-            {summary.exerciseIds.length > 5 && (
+            {(summary.exerciseNames ?? []).length > 5 && (
               <Badge variant="outline" className="text-[10px]">
-                +{summary.exerciseIds.length - 5}
+                +{(summary.exerciseNames ?? []).length - 5}
               </Badge>
             )}
           </div>

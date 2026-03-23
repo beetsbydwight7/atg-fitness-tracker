@@ -376,6 +376,7 @@ export function useWorkout(): UseWorkoutReturn {
       totalSets: completed,
       totalVolume: volume,
       exerciseIds: w.exercises.map((e) => e.exerciseId),
+      exerciseNames: w.exercises.map((e) => e.exerciseName),
       prCount,
     };
 
