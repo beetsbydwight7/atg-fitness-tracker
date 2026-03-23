@@ -114,19 +114,18 @@ export default function WorkoutPage() {
   }
 
   async function handleFinishWorkout() {
-    // Capture the workout data before completing (completing marks it done)
-    const workoutSnapshot = workout ? { ...workout, exercises: [...workout.exercises] } : null;
-    const s = await completeWorkout();
+    if (!workout) return;
+    // Pass the current workout directly so completeWorkout always calculates
+    // volume/sets from the latest committed React state, not a stale ref.
+    const s = await completeWorkout(workout);
     if (s) {
       setSummary(s);
-      if (workoutSnapshot) {
-        setCompletedWorkout({
-          ...workoutSnapshot,
-          isComplete: true,
-          completedAt: new Date(),
-          durationSeconds: s.durationSeconds,
-        } as Workout);
-      }
+      setCompletedWorkout({
+        ...workout,
+        isComplete: true,
+        completedAt: new Date(),
+        durationSeconds: s.durationSeconds,
+      } as Workout);
       setShowSummary(true);
       setShareStatus('idle');
       timer.reset();
