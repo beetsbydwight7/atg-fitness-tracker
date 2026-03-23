@@ -7,7 +7,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    initializeDatabase().then(() => setReady(true));
+    initializeDatabase()
+      .then(() => setReady(true))
+      .catch((err) => {
+        console.error('Database initialization failed:', err);
+        // Still let the app load so the user isn't stuck on a spinner.
+        setReady(true);
+      });
   }, []);
 
   if (!ready) {
