@@ -12,12 +12,14 @@ import type { Template } from '@/lib/types/template';
 interface UseWorkoutReturn {
   workout: Workout | null;
   isActive: boolean;
+  isEditMode: boolean;
   elapsed: number;
   completedSets: number;
   totalSets: number;
   startWorkout: (name?: string) => Promise<void>;
   startFromTemplate: (template: Template) => Promise<void>;
   resumeWorkout: (workout: Workout) => void;
+  editExistingWorkout: (workout: Workout) => void;
   addExercise: (exercise: Exercise) => Promise<void>;
   removeExercise: (workoutExerciseId: string) => Promise<void>;
   addSet: (workoutExerciseId: string) => Promise<void>;
@@ -26,6 +28,7 @@ interface UseWorkoutReturn {
   completeSet: (workoutExerciseId: string, setId: string) => Promise<void>;
   skipSet: (workoutExerciseId: string, setId: string) => Promise<void>;
   completeWorkout: (currentWorkout: Workout) => Promise<WorkoutSummary | null>;
+  saveEditedWorkout: (currentWorkout: Workout) => Promise<void>;
   discardWorkout: () => Promise<void>;
   updateWorkoutName: (name: string) => void;
 }
@@ -34,6 +37,7 @@ const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
 export function useWorkout(): UseWorkoutReturn {
   const [workout, setWorkout] = useState<Workout | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Always-current ref so async callbacks (completeSet, completeWorkout) never
@@ -168,6 +172,14 @@ export function useWorkout(): UseWorkoutReturn {
 
   const resumeWorkout = useCallback((w: Workout) => {
     setWorkout(w);
+  }, []);
+
+  // Load a completed workout for editing. Sets isComplete: false so the
+  // active-workout UI renders, and flags isEditMode so the page can show
+  // "Save Changes" instead of "Finish".
+  const editExistingWorkout = useCallback((w: Workout) => {
+    setIsEditMode(true);
+    setWorkout({ ...w, isComplete: false });
   }, []);
 
   const addExercise = useCallback(
@@ -414,6 +426,59 @@ export function useWorkout(): UseWorkoutReturn {
     []
   );
 
+  // Persist changes to a previously-completed workout without changing the
+  // original date/duration. Re-computes volume and set counts from the
+  // current exercise state and updates (or creates) the WorkoutSummary.
+  const saveEditedWorkout = useCallback(async (currentWorkout: Workout) => {
+    const now = new Date();
+
+    // Auto-complete pending sets that have data (mirrors completeWorkout).
+    const exercises = currentWorkout.exercises.map((ex) => ({
+      ...ex,
+      sets: ex.sets.map((s) => {
+        if (s.status !== 'pending') return s;
+        const hasData = s.reps != null || s.duration != null || s.distance != null;
+        if (!hasData) return s;
+        return { ...s, status: 'completed' as const, completedAt: now };
+      }),
+    }));
+
+    const w: Workout = { ...currentWorkout, exercises };
+    const volume = calculateWorkoutVolume(w.exercises);
+    const completed = calculateCompletedSets(w.exercises);
+    const prCount = w.exercises.reduce(
+      (count, ex) => count + ex.sets.filter((s) => s.isPR).length,
+      0
+    );
+
+    const savedWorkout: Workout = { ...w, isComplete: true };
+
+    // Preserve the original summary id and date so history ordering is unchanged.
+    const existingSummary = await db.workoutSummaries
+      .where('workoutId')
+      .equals(w.id)
+      .first();
+
+    const summary: WorkoutSummary = {
+      id: existingSummary?.id ?? uuid(),
+      workoutId: w.id,
+      date: existingSummary?.date ?? toDateString(w.completedAt ? new Date(w.completedAt) : now),
+      name: w.name,
+      durationSeconds: w.durationSeconds ?? 0,
+      totalSets: completed,
+      totalVolume: volume,
+      exerciseIds: w.exercises.map((e) => e.exerciseId),
+      exerciseNames: w.exercises.map((e) => e.exerciseName),
+      prCount,
+    };
+
+    await db.workouts.put(savedWorkout);
+    await db.workoutSummaries.put(summary);
+
+    setIsEditMode(false);
+    setWorkout(null);
+  }, []);
+
   const discardWorkout = useCallback(async () => {
     if (!workout) return;
     await db.workouts.delete(workout.id);
@@ -430,12 +495,14 @@ export function useWorkout(): UseWorkoutReturn {
   return {
     workout,
     isActive,
+    isEditMode,
     elapsed,
     completedSets,
     totalSets,
     startWorkout,
     startFromTemplate,
     resumeWorkout,
+    editExistingWorkout,
     addExercise,
     removeExercise,
     addSet,
@@ -444,6 +511,7 @@ export function useWorkout(): UseWorkoutReturn {
     completeSet,
     skipSet,
     completeWorkout,
+    saveEditedWorkout,
     discardWorkout,
     updateWorkoutName,
   };

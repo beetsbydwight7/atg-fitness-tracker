@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trophy, Dumbbell, Clock, Flame, Share2, CheckCheck } from 'lucide-react';
+import { Trophy, Dumbbell, Clock, Flame, Share2, CheckCheck, Pencil } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import { useRouter } from 'next/navigation';
 import {
   Sheet,
   SheetContent,
@@ -32,6 +33,7 @@ export function WorkoutDetail({
   onOpenChange,
   weightUnit = 'lbs',
 }: WorkoutDetailProps) {
+  const router = useRouter();
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'shared'>('idle');
@@ -242,6 +244,19 @@ export function WorkoutDetail({
                   Use as Template
                 </>
               )}
+            </Button>
+
+            {/* Edit Workout button */}
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => {
+                onOpenChange(false);
+                router.push(`/workout?editId=${workout.id}`);
+              }}
+            >
+              <Pencil className="size-4" />
+              Edit Workout
             </Button>
           </div>
         )}
