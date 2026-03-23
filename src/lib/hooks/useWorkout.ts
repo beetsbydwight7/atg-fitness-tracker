@@ -360,13 +360,23 @@ export function useWorkout(): UseWorkoutReturn {
 
   const completeWorkout = useCallback(
     async (currentWorkout: Workout): Promise<WorkoutSummary | null> => {
-      // Receive the workout from the caller (page component) rather than
-      // reading workoutRef.current, which may lag a render behind the
-      // committed state when the user taps Finish immediately after
-      // completing the last set.
-      const w = currentWorkout;
-
       const now = new Date();
+
+      // Auto-complete any pending sets that have data entered so that
+      // users who forget to tap the per-set checkmarks still get credit.
+      const exercises = currentWorkout.exercises.map((ex) => ({
+        ...ex,
+        sets: ex.sets.map((s) => {
+          if (s.status !== 'pending') return s;
+          const hasData =
+            s.reps != null || s.duration != null || s.distance != null;
+          if (!hasData) return s;
+          return { ...s, status: 'completed' as const, completedAt: now };
+        }),
+      }));
+
+      const w: Workout = { ...currentWorkout, exercises };
+
       const durationSeconds = getElapsedSeconds(new Date(w.startedAt));
       const volume = calculateWorkoutVolume(w.exercises);
       const completed = calculateCompletedSets(w.exercises);
