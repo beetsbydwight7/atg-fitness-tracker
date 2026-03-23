@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trophy, Dumbbell, Clock, Flame, Share2, CheckCheck, Pencil } from 'lucide-react';
+import { Trophy, Dumbbell, Clock, Flame, Share2, CheckCheck, Pencil, Trash2 } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import { useRouter } from 'next/navigation';
 import {
@@ -38,6 +38,14 @@ export function WorkoutDetail({
   const [loading, setLoading] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'shared'>('idle');
   const [templateStatus, setTemplateStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  async function handleDelete() {
+    if (!workout) return;
+    await db.workouts.delete(workout.id);
+    await db.workoutSummaries.where('workoutId').equals(workout.id).delete();
+    onOpenChange(false);
+  }
 
   async function handleUseAsTemplate() {
     if (!workout) return;
@@ -93,6 +101,7 @@ export function WorkoutDetail({
   useEffect(() => {
     if (!workoutId || !open) {
       setWorkout(null);
+      setConfirmDelete(false);
       return;
     }
 
@@ -258,6 +267,35 @@ export function WorkoutDetail({
               <Pencil className="size-4" />
               Edit Workout
             </Button>
+
+            {/* Delete Workout */}
+            {confirmDelete ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleDelete}
+                >
+                  Yes, delete
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                className="w-full gap-2 text-destructive hover:text-destructive"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="size-4" />
+                Delete Workout
+              </Button>
+            )}
           </div>
         )}
 
