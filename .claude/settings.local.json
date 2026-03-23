@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npx create-next-app@latest fitness-app --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npx create-next-app@latest fitness-app --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --no-react-compiler)",
+      "Bash(yes \"\")",
+      "Bash(shopt -s dotglob)",
+      "Bash(mv /Users/reidthompson/Fitness-App/fitness-app/* /Users/reidthompson/Fitness-App/)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init -d --base-color zinc --css-variables)",
+      "Bash(npx shadcn@latest init -d)"
+    ]
+  }
+}
