@@ -44,6 +44,7 @@ export function WorkoutDetail({
     if (!workout) return;
     await db.workouts.delete(workout.id);
     await db.workoutSummaries.where('workoutId').equals(workout.id).delete();
+    await db.prs.where('workoutId').equals(workout.id).delete();
     onOpenChange(false);
   }
 
