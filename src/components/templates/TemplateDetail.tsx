@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -10,8 +11,9 @@ import {
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Copy, Trash2, Clock, Star, Dumbbell } from 'lucide-react';
+import { Play, Copy, Trash2, Clock, Star, Dumbbell, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { shareTemplate } from '@/lib/utils/templateShare';
 import type { Template } from '@/lib/types';
 
 interface TemplateDetailProps {
@@ -63,7 +65,25 @@ export function TemplateDetail({
   onDuplicate,
   onDelete,
 }: TemplateDetailProps) {
+  const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'copied' | 'failed'>('idle');
+
   if (!template) return null;
+
+  async function handleShare() {
+    if (!template) return;
+    const result = await shareTemplate(template);
+    setShareStatus(result);
+    setTimeout(() => setShareStatus('idle'), 3000);
+  }
+
+  const shareLabel =
+    shareStatus === 'shared'
+      ? 'Shared!'
+      : shareStatus === 'copied'
+        ? 'Link Copied!'
+        : shareStatus === 'failed'
+          ? 'Failed'
+          : 'Share';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -153,6 +173,14 @@ export function TemplateDetail({
             >
               <Copy className="size-3.5" />
               Duplicate
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={handleShare}
+            >
+              <Share2 className="size-3.5" />
+              {shareLabel}
             </Button>
             {!template.isBuiltIn && (
               <Button
