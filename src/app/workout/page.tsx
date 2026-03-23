@@ -8,6 +8,9 @@ import {
   Timer,
   Trophy,
   Check,
+  Share2,
+  Copy,
+  CheckCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,7 +25,8 @@ import { db } from '@/lib/db/database';
 import { formatTimer, formatDuration } from '@/lib/utils/dateUtils';
 import { formatWeight } from '@/lib/utils/formatWeight';
 import { cn } from '@/lib/utils';
-import type { Exercise, WorkoutSummary, SetType } from '@/lib/types';
+import { generateWhoopText, shareWorkout } from '@/lib/utils/workoutShare';
+import type { Exercise, Workout, WorkoutSummary, SetType } from '@/lib/types';
 
 export default function WorkoutPage() {
   const {
@@ -47,7 +51,9 @@ export default function WorkoutPage() {
   const timer = useTimer();
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
+  const [completedWorkout, setCompletedWorkout] = useState<Workout | null>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'shared'>('idle');
 
   const templates = useLiveQuery(() => db.templates.toArray(), []);
   const settings = useLiveQuery(() => db.settings.get('default'), []);
@@ -108,11 +114,32 @@ export default function WorkoutPage() {
   }
 
   async function handleFinishWorkout() {
+    // Capture the workout data before completing (completing marks it done)
+    const workoutSnapshot = workout ? { ...workout, exercises: [...workout.exercises] } : null;
     const s = await completeWorkout();
     if (s) {
       setSummary(s);
+      if (workoutSnapshot) {
+        setCompletedWorkout({
+          ...workoutSnapshot,
+          isComplete: true,
+          completedAt: new Date(),
+          durationSeconds: s.durationSeconds,
+        } as Workout);
+      }
       setShowSummary(true);
+      setShareStatus('idle');
       timer.reset();
+    }
+  }
+
+  async function handleShareToWhoop() {
+    if (!completedWorkout) return;
+    const text = generateWhoopText(completedWorkout, weightUnit);
+    const result = await shareWorkout(text);
+    if (result === 'shared' || result === 'copied') {
+      setShareStatus(result);
+      setTimeout(() => setShareStatus('idle'), 3000);
     }
   }
 
@@ -163,9 +190,34 @@ export default function WorkoutPage() {
           </CardContent>
         </Card>
 
-        <Button size="lg" onClick={handleDismissSummary} className="w-full max-w-sm">
-          Done
-        </Button>
+        <div className="flex w-full max-w-sm flex-col gap-2">
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full gap-2"
+            onClick={handleShareToWhoop}
+          >
+            {shareStatus === 'copied' ? (
+              <>
+                <CheckCheck className="size-5 text-green-500" />
+                Copied to Clipboard!
+              </>
+            ) : shareStatus === 'shared' ? (
+              <>
+                <CheckCheck className="size-5 text-green-500" />
+                Shared!
+              </>
+            ) : (
+              <>
+                <Share2 className="size-5" />
+                Share to Whoop
+              </>
+            )}
+          </Button>
+          <Button size="lg" onClick={handleDismissSummary} className="w-full">
+            Done
+          </Button>
+        </div>
       </div>
     );
   }

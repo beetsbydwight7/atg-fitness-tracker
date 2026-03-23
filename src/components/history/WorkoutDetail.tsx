@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trophy, Dumbbell, Clock, Flame } from 'lucide-react';
+import { Trophy, Dumbbell, Clock, Flame, Share2, CheckCheck } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { formatDate, formatDuration } from '@/lib/utils/dateUtils';
 import { formatWeight, displayWeight } from '@/lib/utils/formatWeight';
 import { db } from '@/lib/db/database';
+import { generateWhoopText, shareWorkout } from '@/lib/utils/workoutShare';
 import type { Workout } from '@/lib/types';
 
 interface WorkoutDetailProps {
@@ -31,6 +32,17 @@ export function WorkoutDetail({
 }: WorkoutDetailProps) {
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'shared'>('idle');
+
+  async function handleShare() {
+    if (!workout) return;
+    const text = generateWhoopText(workout, weightUnit);
+    const result = await shareWorkout(text);
+    if (result === 'shared' || result === 'copied') {
+      setShareStatus(result);
+      setTimeout(() => setShareStatus('idle'), 3000);
+    }
+  }
 
   useEffect(() => {
     if (!workoutId || !open) {
@@ -136,6 +148,30 @@ export function WorkoutDetail({
                 <p className="text-sm text-foreground">{workout.notes}</p>
               </div>
             )}
+
+            {/* Share to Whoop */}
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={handleShare}
+            >
+              {shareStatus === 'copied' ? (
+                <>
+                  <CheckCheck className="size-4 text-green-500" />
+                  Copied to Clipboard!
+                </>
+              ) : shareStatus === 'shared' ? (
+                <>
+                  <CheckCheck className="size-4 text-green-500" />
+                  Shared!
+                </>
+              ) : (
+                <>
+                  <Share2 className="size-4" />
+                  Share to Whoop
+                </>
+              )}
+            </Button>
 
             {/* Use as Template button */}
             <Button variant="outline" className="w-full" disabled>
