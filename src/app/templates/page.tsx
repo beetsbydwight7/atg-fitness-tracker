@@ -1,17 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTemplates } from '@/lib/hooks/useTemplates';
 import { TemplateCard } from '@/components/templates/TemplateCard';
 import { TemplateDetail } from '@/components/templates/TemplateDetail';
 import { TemplateEditor } from '@/components/templates/TemplateEditor';
 import { Button } from '@/components/ui/button';
-import { Plus, Dumbbell } from 'lucide-react';
+import { Plus, Dumbbell, Download } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet';
+import { decodeTemplateFromShare } from '@/lib/utils/templateShare';
 import type { Template } from '@/lib/types';
 
-export default function TemplatesPage() {
+// Inner component that reads search params (must be inside Suspense)
+function TemplatesPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     builtInTemplates,
     customTemplates,
@@ -22,15 +33,45 @@ export default function TemplatesPage() {
     duplicateTemplate,
   } = useTemplates();
 
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
-    null
-  );
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
 
+  // Import-via-URL state
+  const [importPreview, setImportPreview] = useState<
+    Omit<Template, 'id' | 'isBuiltIn' | 'createdAt' | 'updatedAt'> | null
+  >(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importSaved, setImportSaved] = useState(false);
+
+  // Decode import param on mount
+  useEffect(() => {
+    const encoded = searchParams.get('import');
+    if (!encoded) return;
+    const decoded = decodeTemplateFromShare(encoded);
+    if (decoded) {
+      setImportPreview(decoded);
+      setImportOpen(true);
+    }
+    // Remove the param from the URL so refreshing doesn't re-trigger the dialog
+    const url = new URL(window.location.href);
+    url.searchParams.delete('import');
+    window.history.replaceState({}, '', url.toString());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSaveImport() {
+    if (!importPreview) return;
+    await createTemplate(importPreview);
+    setImportSaved(true);
+    setTimeout(() => {
+      setImportOpen(false);
+      setImportSaved(false);
+      setImportPreview(null);
+    }, 1200);
+  }
+
   function handleStartWorkout(template: Template) {
-    // Store the template ID so the workout page can pick it up
     sessionStorage.setItem('startTemplateId', template.id);
     router.push('/workout');
   }
@@ -85,9 +126,7 @@ export default function TemplatesPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-sm text-muted-foreground">
-              Loading templates...
-            </p>
+            <p className="text-sm text-muted-foreground">Loading templates...</p>
           </div>
         ) : (
           <>
@@ -121,9 +160,7 @@ export default function TemplatesPage() {
                   <div className="flex items-center justify-center size-12 rounded-full bg-muted mb-3">
                     <Dumbbell className="size-6 text-muted-foreground" />
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    No custom templates yet.
-                  </p>
+                  <p className="text-sm text-muted-foreground">No custom templates yet.</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Create your own or duplicate a built-in template.
                   </p>
@@ -172,6 +209,86 @@ export default function TemplatesPage() {
         onOpenChange={setEditorOpen}
         onSave={handleSaveTemplate}
       />
+
+      {/* Import Sheet */}
+      <Sheet open={importOpen} onOpenChange={(o) => { if (!importSaved) setImportOpen(o); }}>
+        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader>
+            <div className="flex items-center gap-2">
+              <Download className="size-5 text-primary" />
+              <SheetTitle>Import Template</SheetTitle>
+            </div>
+            <SheetDescription>
+              Someone shared this workout template with you.
+            </SheetDescription>
+          </SheetHeader>
+
+          {importPreview && (
+            <div className="px-4 space-y-4">
+              <div>
+                <p className="text-base font-semibold">{importPreview.name}</p>
+                {importPreview.description && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{importPreview.description}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  {importPreview.estimatedMinutes} min · {importPreview.exercises.length} exercises
+                </p>
+              </div>
+
+              <div className="divide-y rounded-lg border">
+                {importPreview.exercises
+                  .sort((a, b) => a.order - b.order)
+                  .map((ex, idx) => (
+                    <div key={`${ex.exerciseId}-${idx}`} className="flex items-center gap-3 px-3 py-2.5">
+                      <span className="flex items-center justify-center size-6 rounded-full bg-muted text-xs font-medium shrink-0">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{ex.exerciseName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {ex.targetSets} x{' '}
+                          {ex.targetReps != null
+                            ? `${ex.targetReps} reps`
+                            : ex.targetDuration != null
+                              ? `${ex.targetDuration}s`
+                              : '---'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          <SheetFooter>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleSaveImport}
+              disabled={importSaved}
+            >
+              <Download className="size-4" />
+              {importSaved ? 'Saved!' : 'Save to My Templates'}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => setImportOpen(false)}
+              disabled={importSaved}
+            >
+              Dismiss
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+export default function TemplatesPage() {
+  return (
+    <Suspense>
+      <TemplatesPageInner />
+    </Suspense>
   );
 }
