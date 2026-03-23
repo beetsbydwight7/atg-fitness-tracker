@@ -36,6 +36,10 @@ export function useWorkout(): UseWorkoutReturn {
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Always-current ref so async callbacks (completeSet, completeWorkout) never
+  // close over a stale workout snapshot.
+  const workoutRef = useRef<Workout | null>(null);
+  workoutRef.current = workout;
 
   const isActive = workout !== null && !workout.isComplete;
   const completedSets = workout ? calculateCompletedSets(workout.exercises) : 0;
@@ -279,9 +283,10 @@ export function useWorkout(): UseWorkoutReturn {
 
   const completeSet = useCallback(
     async (workoutExerciseId: string, setId: string) => {
-      if (!workout) return;
+      const w = workoutRef.current;
+      if (!w) return;
 
-      const ex = workout.exercises.find((e) => e.id === workoutExerciseId);
+      const ex = w.exercises.find((e) => e.id === workoutExerciseId);
       if (!ex) return;
       const set = ex.sets.find((s) => s.id === setId);
       if (!set) return;
@@ -297,10 +302,8 @@ export function useWorkout(): UseWorkoutReturn {
         completedSet,
         ex.exerciseId,
         ex.exerciseName,
-        workout.id
+        w.id
       );
-
-      completedSet.isPR = isPR;
 
       updateWorkoutState((prev) => ({
         ...prev,
@@ -308,12 +311,22 @@ export function useWorkout(): UseWorkoutReturn {
           if (e.id !== workoutExerciseId) return e;
           return {
             ...e,
-            sets: e.sets.map((s) => (s.id === setId ? completedSet : s)),
+            sets: e.sets.map((s) => {
+              if (s.id !== setId) return s;
+              // Merge onto the latest `prev` set so any weight/reps the user
+              // typed during the async PR check are preserved.
+              return {
+                ...s,
+                status: 'completed' as const,
+                completedAt: completedSet.completedAt,
+                isPR,
+              };
+            }),
           };
         }),
       }));
     },
-    [workout, updateWorkoutState]
+    [updateWorkoutState]
   );
 
   const skipSet = useCallback(
@@ -335,19 +348,20 @@ export function useWorkout(): UseWorkoutReturn {
   );
 
   const completeWorkout = useCallback(async (): Promise<WorkoutSummary | null> => {
-    if (!workout) return null;
+    const w = workoutRef.current;
+    if (!w) return null;
 
     const now = new Date();
-    const durationSeconds = getElapsedSeconds(new Date(workout.startedAt));
-    const volume = calculateWorkoutVolume(workout.exercises);
-    const completed = calculateCompletedSets(workout.exercises);
-    const prCount = workout.exercises.reduce(
+    const durationSeconds = getElapsedSeconds(new Date(w.startedAt));
+    const volume = calculateWorkoutVolume(w.exercises);
+    const completed = calculateCompletedSets(w.exercises);
+    const prCount = w.exercises.reduce(
       (count, ex) => count + ex.sets.filter((s) => s.isPR).length,
       0
     );
 
     const completedWorkout: Workout = {
-      ...workout,
+      ...w,
       completedAt: now,
       durationSeconds,
       isComplete: true,
@@ -355,13 +369,13 @@ export function useWorkout(): UseWorkoutReturn {
 
     const summary: WorkoutSummary = {
       id: uuid(),
-      workoutId: workout.id,
+      workoutId: w.id,
       date: toDateString(now),
-      name: workout.name,
+      name: w.name,
       durationSeconds,
       totalSets: completed,
       totalVolume: volume,
-      exerciseIds: workout.exercises.map((e) => e.exerciseId),
+      exerciseIds: w.exercises.map((e) => e.exerciseId),
       prCount,
     };
 
@@ -370,7 +384,7 @@ export function useWorkout(): UseWorkoutReturn {
 
     setWorkout(completedWorkout);
     return summary;
-  }, [workout]);
+  }, []);
 
   const discardWorkout = useCallback(async () => {
     if (!workout) return;
