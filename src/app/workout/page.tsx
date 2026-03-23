@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Plus,
@@ -9,8 +10,8 @@ import {
   Trophy,
   Check,
   Share2,
-  Copy,
   CheckCheck,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,15 +29,21 @@ import { cn } from '@/lib/utils';
 import { generateWhoopText, shareWorkout } from '@/lib/utils/workoutShare';
 import type { Exercise, Workout, WorkoutSummary, SetType } from '@/lib/types';
 
-export default function WorkoutPage() {
+function WorkoutPageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('editId');
+
   const {
     workout,
     isActive,
+    isEditMode,
     elapsed,
     completedSets,
     totalSets,
     startWorkout,
     startFromTemplate,
+    editExistingWorkout,
     addExercise,
     removeExercise,
     addSet,
@@ -44,6 +51,7 @@ export default function WorkoutPage() {
     completeSet,
     skipSet,
     completeWorkout,
+    saveEditedWorkout,
     discardWorkout,
     updateWorkoutName,
   } = useWorkout();
@@ -59,6 +67,15 @@ export default function WorkoutPage() {
   const settings = useLiveQuery(() => db.settings.get('default'), []);
   const weightUnit = settings?.weightUnit ?? 'lbs';
   const defaultRestSeconds = settings?.defaultRestSeconds ?? 90;
+
+  // Load the workout being edited from the DB when editId is present.
+  useEffect(() => {
+    if (!editId) return;
+    db.workouts.get(editId).then((w) => {
+      if (w) editExistingWorkout(w);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId]);
 
   // Build a map of exerciseId -> setType from the exercises table
   const exerciseIds = useMemo(
@@ -115,8 +132,6 @@ export default function WorkoutPage() {
 
   async function handleFinishWorkout() {
     if (!workout) return;
-    // Pass the current workout directly so completeWorkout always calculates
-    // volume/sets from the latest committed React state, not a stale ref.
     const s = await completeWorkout(workout);
     if (s) {
       setSummary(s);
@@ -130,6 +145,13 @@ export default function WorkoutPage() {
       setShareStatus('idle');
       timer.reset();
     }
+  }
+
+  async function handleSaveEdit() {
+    if (!workout) return;
+    await saveEditedWorkout(workout);
+    timer.reset();
+    router.push('/history');
   }
 
   async function handleShareToWhoop() {
@@ -151,7 +173,7 @@ export default function WorkoutPage() {
     setSummary(null);
   }
 
-  // Completion summary overlay
+  // Completion summary overlay (only shown for new workouts, not edits)
   if (showSummary && summary) {
     return (
       <div className="flex min-h-[80vh] flex-col items-center justify-center gap-6 px-4">
@@ -221,30 +243,43 @@ export default function WorkoutPage() {
     );
   }
 
-  // Active workout view
+  // Active workout view (new workout or edit mode)
   if (isActive && workout) {
     return (
       <div className="flex flex-col gap-4 pb-32">
         {/* Header */}
         <div className="sticky top-0 z-40 border-b bg-background/95 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-2">
+            {isEditMode ? (
+              <button
+                onClick={() => router.push('/history')}
+                className="flex items-center gap-1 text-sm text-muted-foreground"
+              >
+                <ArrowLeft className="size-4" />
+                History
+              </button>
+            ) : null}
             <Input
               value={workout.name}
               onChange={(e) => updateWorkoutName(e.target.value)}
-              className="h-8 border-none bg-transparent px-0 text-base font-bold focus-visible:ring-0"
+              className="h-8 flex-1 border-none bg-transparent px-0 text-base font-bold focus-visible:ring-0"
             />
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="tabular-nums">
-                <Timer className="mr-1 size-3" />
-                {formatTimer(elapsed)}
-              </Badge>
-              <Button size="sm" onClick={handleFinishWorkout}>
-                Finish
+              {!isEditMode && (
+                <Badge variant="outline" className="tabular-nums">
+                  <Timer className="mr-1 size-3" />
+                  {formatTimer(elapsed)}
+                </Badge>
+              )}
+              <Button size="sm" onClick={isEditMode ? handleSaveEdit : handleFinishWorkout}>
+                {isEditMode ? 'Save' : 'Finish'}
               </Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            {completedSets}/{totalSets} sets completed
+            {isEditMode
+              ? `${workout.exercises.length} exercise${workout.exercises.length !== 1 ? 's' : ''}`
+              : `${completedSets}/${totalSets} sets completed`}
           </p>
         </div>
 
@@ -299,8 +334,8 @@ export default function WorkoutPage() {
           onSelectExercise={handleSelectExercise}
         />
 
-        {/* Rest Timer */}
-        {(timer.isRunning || timer.secondsRemaining > 0) && (
+        {/* Rest Timer (not shown in edit mode) */}
+        {!isEditMode && (timer.isRunning || timer.secondsRemaining > 0) && (
           <RestTimer
             secondsRemaining={timer.secondsRemaining}
             totalSeconds={timer.totalSeconds}
@@ -312,21 +347,32 @@ export default function WorkoutPage() {
           />
         )}
 
-        {/* Discard button */}
+        {/* Discard / Cancel button */}
         <div className="px-4">
-          <Button
-            variant="destructive"
-            size="sm"
-            className="w-full"
-            onClick={async () => {
-              if (window.confirm('Discard this workout? This cannot be undone.')) {
-                await discardWorkout();
-                timer.reset();
-              }
-            }}
-          >
-            Discard Workout
-          </Button>
+          {isEditMode ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => router.push('/history')}
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full"
+              onClick={async () => {
+                if (window.confirm('Discard this workout? This cannot be undone.')) {
+                  await discardWorkout();
+                  timer.reset();
+                }
+              }}
+            >
+              Discard Workout
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -384,5 +430,13 @@ export default function WorkoutPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function WorkoutPage() {
+  return (
+    <Suspense>
+      <WorkoutPageInner />
+    </Suspense>
   );
 }
