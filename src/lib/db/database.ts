@@ -23,6 +23,10 @@ export class FitnessDatabase extends Dexie {
       prs: '&id, exerciseId, metric, achievedAt, workoutId',
       settings: '&id',
     });
+    // Version 2: add compound index used by PR detection queries.
+    this.version(2).stores({
+      prs: '&id, exerciseId, metric, [exerciseId+metric], achievedAt, workoutId',
+    });
   }
 }
 

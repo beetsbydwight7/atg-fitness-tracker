@@ -47,5 +47,6 @@ export interface WorkoutSummary {
   totalSets: number;
   totalVolume: number; // kg * reps
   exerciseIds: string[];
+  exerciseNames?: string[]; // display names, parallel to exerciseIds
   prCount: number;
 }
