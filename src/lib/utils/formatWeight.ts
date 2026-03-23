@@ -6,7 +6,7 @@ export function kgToLbs(kg: number): number {
 }
 
 export function lbsToKg(lbs: number): number {
-  return Math.round(lbs * LBS_TO_KG * 10) / 10;
+  return Math.round(lbs * LBS_TO_KG * 10000) / 10000;
 }
 
 export function formatWeight(kg: number, unit: 'kg' | 'lbs'): string {
