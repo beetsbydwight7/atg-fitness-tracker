@@ -9,7 +9,13 @@
       "Bash(mv /Users/reidthompson/Fitness-App/fitness-app/* /Users/reidthompson/Fitness-App/)",
       "Bash(npm install:*)",
       "Bash(npx shadcn@latest init -d --base-color zinc --css-variables)",
-      "Bash(npx shadcn@latest init -d)"
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add card badge tabs input dialog sheet scroll-area separator progress select --yes)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(gh auth:*)",
+      "Bash(git add:*)"
     ]
   }
 }
