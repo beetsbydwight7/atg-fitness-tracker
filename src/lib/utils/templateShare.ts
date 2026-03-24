@@ -37,14 +37,15 @@ export function encodeTemplateForSharing(template: Template): string {
       rs: ex.restSeconds,
     })),
   };
-  return btoa(JSON.stringify(payload));
+  // encodeURIComponent handles the full Unicode range safely, unlike btoa.
+  return encodeURIComponent(JSON.stringify(payload));
 }
 
 export function decodeTemplateFromShare(
   encoded: string
 ): Omit<Template, 'id' | 'isBuiltIn' | 'createdAt' | 'updatedAt'> | null {
   try {
-    const payload: SharePayload = JSON.parse(atob(encoded));
+    const payload: SharePayload = JSON.parse(decodeURIComponent(encoded));
     if (!payload.n || !Array.isArray(payload.e)) return null;
 
     const exercises: TemplateExercise[] = payload.e.map((ex) => ({

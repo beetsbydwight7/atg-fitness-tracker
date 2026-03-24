@@ -71,8 +71,12 @@ export function TemplateDetail({
 
   async function handleShare() {
     if (!template) return;
-    const result = await shareTemplate(template);
-    setShareStatus(result);
+    try {
+      const result = await shareTemplate(template);
+      setShareStatus(result);
+    } catch {
+      setShareStatus('failed');
+    }
     setTimeout(() => setShareStatus('idle'), 3000);
   }
 
