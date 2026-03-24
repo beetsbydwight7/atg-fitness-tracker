@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2, ArrowUp, ArrowDown, Link2, Link2Off } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, ArrowUp, ArrowDown, Link2, Link2Off, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import { SetRow } from '@/components/workout/SetRow';
+import { ExerciseHistory } from '@/components/workout/ExerciseHistory';
 import { cn } from '@/lib/utils';
 import { PlateCalculator } from '@/components/workout/PlateCalculator';
 import type { WorkoutExercise, WorkoutSet, SetType } from '@/lib/types';
@@ -52,6 +53,7 @@ export function ExerciseBlock({
   onUnlinkSuperset,
 }: ExerciseBlockProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const completedCount = workoutExercise.sets.filter(
     (s) => s.status === 'completed'
@@ -112,6 +114,14 @@ export function ExerciseBlock({
           </span>
         </CardTitle>
         <CardAction className="flex items-center gap-0.5">
+          <Button
+            variant={historyOpen ? 'secondary' : 'ghost'}
+            size="icon-xs"
+            onClick={() => setHistoryOpen((o) => !o)}
+            title="Exercise history"
+          >
+            <History className="size-3.5" />
+          </Button>
           {exerciseSetType === 'reps' && (
             <PlateCalculator
               weightUnit={weightUnit}
@@ -147,6 +157,17 @@ export function ExerciseBlock({
           </Button>
         </CardAction>
       </CardHeader>
+
+      {!collapsed && historyOpen && (
+        <div className="border-b px-4 py-2">
+          <ExerciseHistory
+            exerciseId={workoutExercise.exerciseId}
+            setType={exerciseSetType}
+            exerciseEquipment={exerciseEquipment}
+            weightUnit={weightUnit}
+          />
+        </div>
+      )}
 
       {!collapsed && (
         <CardContent className="space-y-1">
