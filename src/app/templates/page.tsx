@@ -7,19 +7,10 @@ import { TemplateCard } from '@/components/templates/TemplateCard';
 import { TemplateDetail } from '@/components/templates/TemplateDetail';
 import { TemplateEditor } from '@/components/templates/TemplateEditor';
 import { Button } from '@/components/ui/button';
-import { Plus, Dumbbell, Download } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet';
+import { Plus, Dumbbell } from 'lucide-react';
 import { decodeTemplateFromShare } from '@/lib/utils/templateShare';
 import type { Template } from '@/lib/types';
 
-// Inner component that reads search params (must be inside Suspense)
 function TemplatesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,39 +28,22 @@ function TemplatesPageInner() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [importedName, setImportedName] = useState<string | null>(null);
 
-  // Import-via-URL state
-  const [importPreview, setImportPreview] = useState<
-    Omit<Template, 'id' | 'isBuiltIn' | 'createdAt' | 'updatedAt'> | null
-  >(null);
-  const [importOpen, setImportOpen] = useState(false);
-  const [importSaved, setImportSaved] = useState(false);
-
-  // Decode import param on mount
+  // Auto-import on load if the URL contains a shared template.
   useEffect(() => {
     const encoded = searchParams.get('import');
     if (!encoded) return;
     const decoded = decodeTemplateFromShare(encoded);
     if (decoded) {
-      setImportPreview(decoded);
-      setImportOpen(true);
+      createTemplate(decoded);
+      setImportedName(decoded.name);
+      setTimeout(() => setImportedName(null), 3000);
     }
-    // Remove the param from the URL so refreshing doesn't re-trigger the dialog
     const url = new URL(window.location.href);
     url.searchParams.delete('import');
     window.history.replaceState({}, '', url.toString());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleSaveImport() {
-    if (!importPreview) return;
-    await createTemplate(importPreview);
-    setImportSaved(true);
-    setTimeout(() => {
-      setImportOpen(false);
-      setImportSaved(false);
-      setImportPreview(null);
-    }, 1200);
-  }
 
   function handleStartWorkout(template: Template) {
     sessionStorage.setItem('startTemplateId', template.id);
@@ -120,6 +94,9 @@ function TemplatesPageInner() {
             Create
           </Button>
         </div>
+        {importedName && (
+          <p className="text-xs text-green-500 mt-1">"{importedName}" added to My Templates.</p>
+        )}
       </div>
 
       {/* Content */}
@@ -164,12 +141,7 @@ function TemplatesPageInner() {
                   <p className="text-xs text-muted-foreground mt-1">
                     Create your own or duplicate a built-in template.
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={handleCreateTemplate}
-                  >
+                  <Button variant="outline" size="sm" className="mt-4" onClick={handleCreateTemplate}>
                     <Plus className="size-3.5" />
                     Create Template
                   </Button>
@@ -192,7 +164,6 @@ function TemplatesPageInner() {
         )}
       </div>
 
-      {/* Detail Sheet */}
       <TemplateDetail
         template={selectedTemplate}
         open={detailOpen}
@@ -202,85 +173,12 @@ function TemplatesPageInner() {
         onDelete={handleDeleteTemplate}
       />
 
-      {/* Editor Sheet */}
       <TemplateEditor
         template={editingTemplate}
         open={editorOpen}
         onOpenChange={setEditorOpen}
         onSave={handleSaveTemplate}
       />
-
-      {/* Import Sheet */}
-      <Sheet open={importOpen} onOpenChange={(o) => { if (!importSaved) setImportOpen(o); }}>
-        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl">
-          <SheetHeader>
-            <div className="flex items-center gap-2">
-              <Download className="size-5 text-primary" />
-              <SheetTitle>Import Template</SheetTitle>
-            </div>
-            <SheetDescription>
-              Someone shared this workout template with you.
-            </SheetDescription>
-          </SheetHeader>
-
-          {importPreview && (
-            <div className="px-4 space-y-4">
-              <div>
-                <p className="text-base font-semibold">{importPreview.name}</p>
-                {importPreview.description && (
-                  <p className="text-sm text-muted-foreground mt-0.5">{importPreview.description}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">
-                  {importPreview.estimatedMinutes} min · {importPreview.exercises.length} exercises
-                </p>
-              </div>
-
-              <div className="divide-y rounded-lg border">
-                {importPreview.exercises
-                  .sort((a, b) => a.order - b.order)
-                  .map((ex, idx) => (
-                    <div key={`${ex.exerciseId}-${idx}`} className="flex items-center gap-3 px-3 py-2.5">
-                      <span className="flex items-center justify-center size-6 rounded-full bg-muted text-xs font-medium shrink-0">
-                        {idx + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{ex.exerciseName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {ex.targetSets} x{' '}
-                          {ex.targetReps != null
-                            ? `${ex.targetReps} reps`
-                            : ex.targetDuration != null
-                              ? `${ex.targetDuration}s`
-                              : '---'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          <SheetFooter>
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleSaveImport}
-              disabled={importSaved}
-            >
-              <Download className="size-4" />
-              {importSaved ? 'Saved!' : 'Save to My Templates'}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => setImportOpen(false)}
-              disabled={importSaved}
-            >
-              Dismiss
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
