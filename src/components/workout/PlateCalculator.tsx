@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,42 @@ function plateStyle(plate: number, unit: 'kg' | 'lbs') {
   return 'bg-zinc-300 text-black';
 }
 
+/**
+ * Track the virtual keyboard height via the VisualViewport API so we can
+ * shift the bottom sheet above the keyboard on mobile.
+ */
+function useKeyboardOffset(enabled: boolean) {
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setOffset(0);
+      return;
+    }
+
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!vv) return;
+
+    function handleResize() {
+      // The gap between the full window height and the visual viewport
+      // height is the keyboard (plus any browser chrome changes).
+      const kb = window.innerHeight - vv!.height;
+      setOffset(Math.max(0, kb));
+    }
+
+    vv.addEventListener('resize', handleResize);
+    vv.addEventListener('scroll', handleResize);
+    handleResize();
+
+    return () => {
+      vv.removeEventListener('resize', handleResize);
+      vv.removeEventListener('scroll', handleResize);
+    };
+  }, [enabled]);
+
+  return offset;
+}
+
 interface PlateCalculatorProps {
   weightUnit: 'kg' | 'lbs';
   initialWeight?: number | null;
@@ -64,6 +100,7 @@ export function PlateCalculator({ weightUnit, initialWeight }: PlateCalculatorPr
   const target = parseFloat(input) || 0;
   const bar = weightUnit === 'kg' ? BAR_KG : BAR_LBS;
   const { perSide, achievable, remainder } = useMemo(() => calcPlates(target, weightUnit), [target, weightUnit]);
+  const keyboardOffset = useKeyboardOffset(open);
 
   return (
     <>
@@ -71,12 +108,16 @@ export function PlateCalculator({ weightUnit, initialWeight }: PlateCalculatorPr
         <Calculator className="size-3.5" />
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetContent
+        side="bottom"
+        className="max-h-[85dvh] rounded-t-2xl"
+        style={keyboardOffset > 0 ? { bottom: keyboardOffset } : undefined}
+      >
         <SheetHeader>
           <SheetTitle>Plate Calculator</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-5 px-4 pb-8">
+        <div className="space-y-5 overflow-y-auto px-4 pb-8">
           <div className="flex items-center gap-3">
             <label className="shrink-0 text-sm font-medium">
               Target ({weightUnit})
